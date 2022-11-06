@@ -7,7 +7,7 @@ function NavBar() {
   return (
     <Navbar collapseOnSelect expand="lg" bg="dark" variant="dark" fixed="top">
       <Container>
-        <Navbar.Brand href="/">
+        <Navbar.Brand href="#">
           <Image
             src="logo192.png"
             alt={document.title}

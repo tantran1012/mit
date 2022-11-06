@@ -1,5 +1,4 @@
 import NavBar from "./NavBar";
-import { Fragment } from "react";
 
 function Header() {
     return (

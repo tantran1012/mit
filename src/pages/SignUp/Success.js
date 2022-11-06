@@ -16,7 +16,7 @@ function Success({ user, ...props }) {
             <Modal.Body>
                 <p>Tài khoản : {user.username} </p>
                 <p>Mật khẩu : {user.password} </p>
-                <p>Chuyển đến <a href="/signin"> đăng nhập</a></p>
+                <p>Chuyển đến <a href="#/signin"> đăng nhập</a></p>
             </Modal.Body>
         </Modal>
     );

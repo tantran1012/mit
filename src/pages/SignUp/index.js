@@ -1,143 +1,150 @@
 import { Button, Form, Row, Col } from "react-bootstrap";
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import axios from "axios";
+
 import Success from "./Success";
 
 function SignUp() {
-    const [username, setUsername] = useState("");
-    const [password, setPassword] = useState("");
-    const [rePassword, setRePassword] = useState("");
-    const [isUsed, setIsUsed] = useState(false);
-    const [isTheSamePassword, setIsTheSamePassword] = useState(true);
-    const [isStrongPassword, setIsStrongPassword] = useState(true);
+    const {
+        register,
+        handleSubmit,
+        setError,
+        clearErrors,
+        getValues,
+        formState: { errors },
+    } = useForm({ criteriaMode: "all" });
     const [success, setSuccess] = useState(false);
-    const [alert, setAlert] = useState({
-        username: "",
-        password: "",
-        rePassword: "",
-    });
+    const queryClient = useQueryClient();
+    const getUsername = async (username) => {
+        const { data } = await axios.get(
+            `https://mit-be.herokuapp.com/checkuser/${username}`
+        );
+        return data;
+    };
 
-    const handleUsername = (e) => {
-        setUsername(e.target.value);
-        if (e.target.value.length > 0) {
-            fetch(`https://mit-be.herokuapp.com/checkuser/${e.target.value}`)
-                .then((res) => res.json())
-                .then((res) => {
-                    if (res) {
-                        setIsUsed(true);
-                        setAlert((prev) => {
-                            prev.username = "Tài khoản đã có người sử dụng";
-                            return prev;
-                        });
-                    } else {
-                        setIsUsed(false);
-                    }
+    const mutation = useMutation(
+        {
+            mutationFn: (user) => {
+                return axios({
+                    method: "post",
+                    url: "https://mit-be.herokuapp.com/signup",
+                    data: user,
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
                 });
+            },
+        },
+        {
+            onSuccess: (data) => {
+                console.log(data);
+                const message = "success";
+                alert(message);
+            },
+            onError: () => {
+                alert("there was an error");
+            },
+            onSettled: () => {
+                queryClient.invalidateQueries("create");
+            },
         }
-    };
-    const handlePassword = (e) => {
-        setPassword(e.target.value);
-        if (e.target.value.length < 8) {
-            setAlert((prev) => {
-                prev.password = "Mật khẩu không phù hợp điều kiện";
-                return prev;
-            });
-            setIsStrongPassword(false);
+    );
+
+    const checkUsername = async (e) => {
+        if (e.target.value.length > 0) {
+            const data = await getUsername(e.target.value);
+            if (data) {
+                setError("username", {
+                    type: "isUsed",
+                    message: "Tài khoản đã có người sử dụng",
+                });
+                return false;
+            } else {
+                clearErrors("username");
+                return true;
+            }
         } else {
-            setIsStrongPassword(true);
-        }
-    };
-    const handleRePassword = (e) => {
-        setRePassword(e.target.value);
-        if (e.target.value !== password) {
-            setAlert((prev) => {
-                prev.rePassword = "Mật khẩu không trùng khớp";
-                return prev;
-            });
-            setIsTheSamePassword(false);
-        } else {
-            setIsTheSamePassword(true);
+            return true;
         }
     };
 
-    const handleSubmit = (e) => {
-        if (!isUsed && isTheSamePassword && isStrongPassword) {
-            setSuccess(true);
-            fetch("https://mit-be.herokuapp.com/signup", {
-                method: "POST",
-                body: JSON.stringify({
-                    username: username,
-                    password: password,
-                    name: username,
-                }),
-                headers: {
-                    "Content-Type": "application/json",
-                },
-            })
-                .then((res) => res.json())
-                .then((response) => {
-                    console.log("Success:", JSON.stringify(response));
-                })
-                .catch((error) => console.error("Error:", error));
+    const checkRePassword = (e) => {
+        if (getValues("rePassword") !== getValues("password")) {
+            setError("rePassword", {
+                type: "isSame",
+                message: "Mật khẩu nhập lại không trùng khớp",
+            });
+            return false;
+        } else {
+            clearErrors("rePassword");
+            return true;
         }
-        setIsUsed(true)
-        e.preventDefault();
-        // e.stopPropagation();
-        //setValidated(true);
+    };
+
+    const onSubmit = (data) => {
+        mutation.mutate(data);
+        setSuccess(true);
     };
 
     return (
         <Row className="justify-content-center">
             <Col xs="auto">
                 <Form
-                    // noValidate
-                    //validated={validated}
-                    onSubmit={handleSubmit}
+                    noValidate
+                    onSubmit={handleSubmit((data) => {
+                        onSubmit(JSON.stringify(data));
+                    })}
                     className="align-items-center"
                 >
                     <Form.Group className="mb-3">
                         <Form.Label>Tài khoản</Form.Label>
                         <Form.Control
-                            required
-                            value={username}
                             type="text"
                             placeholder="Tài khoản"
-                            onChange={handleUsername}
-                            isInvalid={isUsed}
+                            onChange={checkUsername}
+                            {...register("username", {
+                                required: "Không được bỏ trống tài khoản",
+                                onChange: (e) => checkUsername(e),
+                            })}
+                            className={`${errors.username ? "is-invalid" : ""}`}
                         />
-                        <Form.Control.Feedback type="invalid">
-                            {alert.username}
-                        </Form.Control.Feedback>
+                        <div className="invalid-feedback">
+                            {errors.username?.message}
+                        </div>
                     </Form.Group>
                     <Form.Group className="mb-3">
                         <Form.Label>Mật khẩu</Form.Label>
                         <Form.Control
-                            required
-                            value={password}
                             type="password"
                             placeholder="Mật khẩu"
-                            onChange={handlePassword}
-                            isInvalid={!isStrongPassword}
+                            {...register("password", {
+                                required: "Không được bỏ trống mật khẩu",
+                            })}
+                            className={`${errors.password ? "is-invalid" : ""}`}
                         />
-                        <Form.Text className="text-muted m-2">
-                            Mật khẩu phải có ít nhất 8 ký tự, có cả chữ và số.
-                        </Form.Text>
-                        <Form.Control.Feedback type="invalid">
-                            {alert.password}
-                        </Form.Control.Feedback>
+                        <div className="invalid-feedback">
+                            {errors.password?.message}
+                        </div>
                     </Form.Group>
                     <Form.Group className="mb-3">
                         <Form.Label>Nhập lại mật khẩu</Form.Label>
                         <Form.Control
-                            required
-                            value={rePassword}
                             type="password"
                             placeholder="Nhập lại mật khẩu"
-                            onChange={handleRePassword}
-                            isInvalid={!isTheSamePassword}
+                            onChange={checkRePassword}
+                            {...register("rePassword", {
+                                required: "Không được bỏ trống",
+                                onChange: (e) => checkRePassword(e),
+                            })}
+                            className={`${
+                                errors.rePassword ? "is-invalid" : ""
+                            }`}
                         />
-                        <Form.Control.Feedback type="invalid">
-                            {alert.rePassword}
-                        </Form.Control.Feedback>
+                        <div className="invalid-feedback">
+                            {errors.rePassword?.message}
+                        </div>
                     </Form.Group>
                     <Button variant="primary" type="submit">
                         Đăng ký
@@ -148,9 +155,9 @@ function SignUp() {
                 show={success}
                 onHide={() => setSuccess(false)}
                 user={{
-                    username: username,
-                    password: password,
-                    name: username,
+                    username: getValues("username"),
+                    password: getValues("password"),
+                    name: getValues("username"),
                 }}
             />
         </Row>
